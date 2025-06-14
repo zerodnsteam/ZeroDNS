@@ -2,7 +2,7 @@ name: ZeroDNS Auto Update
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # 매일 한국시간 18시 (UTC+9 기준)
+    - cron: '0 9 * * *'   # 매일 한국시간 18시(UTC+9)
   workflow_dispatch:
 
 jobs:
@@ -36,4 +36,5 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add ZeroDNS.txt
           git commit -m "auto: update ZeroDNS" || exit 0
+          git pull --rebase
           git push
