@@ -41,12 +41,9 @@ https://cdn.jsdelivr.net/gh/zerodnsteam/ZeroDNS@main/ZeroDNS.txt
 
 ## ⏬ **설치/적용 예시**
 
-1. **AdGuard (iOS/Android/브라우저/PC)**  
+**AdGuard (iOS/Android/브라우저/PC)**  
    - `사용자 DNS 필터` → 위 Cl주소 복사/붙여넣기  
-2. **AdGuard Home / Pi-hole / 라우터 / 기타**  
-   - “커스텀 블록리스트” 입력란에 위 주소 추가  
-3. **자동 업데이트**  
-   - 매일/매주 자동 최신 필터 적용
+
 
 ---
 
