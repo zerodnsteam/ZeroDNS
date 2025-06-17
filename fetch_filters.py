@@ -3,7 +3,7 @@ import requests
 filter_sources = [
     # 순서대로 다운로드
     ("ultimate.txt", "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/ultimate.txt"),
-    ("1hosts-Xtra_adblock.txt", "https://cdn.jsdelivr.net/gh/zerodnsteam/ZeroDNS@main/filters/1hosts-Xtra_adblock.txt"),
+    ("adblock", "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Pro/adblock.txt"),
     ("oisd_big.txt", "https://cdn.jsdelivr.net/gh/sjhgvr/oisd@main/oisd_big.txt"),
     ("native.apple.txt", "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/native.apple.txt"),
     ("filter_25.txt", "https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt"),
