@@ -5,7 +5,7 @@ filter_dir = Path("filters")
 input_files = [
     "native.apple.txt",
     "ultimate.txt",              
-    "1hosts-Xtra_adblock.txt",   
+    "adblock.txt",   
     "oisd_big.txt",              
     "filter_25.txt",
     "filter_1_ios.txt"
@@ -32,14 +32,21 @@ ascii_logo = [
     "! ╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝",
     "! ==========================================================",
     "! ZeroDNS : 중복 제거 · 자동 병합 · iOS AdGuard 최적화",
+    "! Title: ZeroDNS (AdGuard DNS Filter)
+    "! Description: iOS 최적화 공격적인 DNS 필터 – 광고, 트래커, 통계, 위협 도메인 차단
+    "! Version: 2025.06.17
+    "! Last modified: 2025-06-17T00:00:00Z
+    "! Homepage: https://github.com/zerodnsteam/ZeroDNS
+    "! Expires: 1 day
+
     f"! 최신 업데이트 : {datetime.now().strftime('%Y-%m-%d %H:%M %z')}",
     f"! 총 도메인 수  : {len(domains):,}",
     "! [소스]",
     "!   · hagezi native.apple",
     "!   · hagezi ultimate",
-    "!   · 1hosts Xtra",
+    "!   · 1hosts pro",
     "!   · oisd big",
-    "!   · AdGuard HostlistsRegistry #25",
+    "!   · List-KR",
     "!   · AdGuard DNS filter (iOS)",
     "! Maintainer : zerodnsteam | https://github.com/zerodnsteam/ZeroDNS",
     "! ==========================================================",
