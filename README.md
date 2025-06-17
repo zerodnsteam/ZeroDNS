@@ -1,7 +1,7 @@
 # ZeroDNS
 
 [![Auto Update](https://github.com/zerodnsteam/ZeroDNS/actions/workflows/auto_update.yml/badge.svg)](https://github.com/zerodnsteam/ZeroDNS/actions)
-![Lines](https://img.shields.io/badge/%EC%A4%84%20%EC%88%98-195,000%2B-blue)
+![Lines](https://img.shields.io/badge/%EC%A4%84%20%EC%88%98-520,000%2B-blue)
 
 ---
 
