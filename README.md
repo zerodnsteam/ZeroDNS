@@ -9,39 +9,32 @@
 
 - 여러 글로벌 DNS 필터 소스를 **매일 자동 병합·중복 제거·최적화**
 - 최신 광고, 트래커, 스팸, 피싱 도메인 실시간 차단
-- iOS(AdGuard), Android, macOS, Windows, 라우터 등 **모든 환경에 최적화**
-- 줄 수/최신화/구성 정보는 필터 상단 주석에서 직접 확인 가능
 
 ---
 
-## 🚀 **최신 필터 CDN 주소**
+## 🚀 **최신 필터 주소**
 
 ```
 https://cdn.jsdelivr.net/gh/zerodnsteam/ZeroDNS@main/ZeroDNS.txt
 ```
 
-
-- **AdGuard, 블로커 앱, DNS 앱 등에서**  
-  “사용자 DNS 필터” 또는 “커스텀 블록리스트”에 그대로 입력  
-- 전 세계 어디서든 빠른 속도(CDN 캐시/최신화)
-
 ---
 
 ## 📦 **통합 소스(자동 병합)**
 
-- Hagezi native.apple
-- Hagezi ultimate.mini
-- 1Hosts Lite
-- oisd small
-- AdGuard HostlistsRegistry #25
-- AdGuard DNS filter (iOS)
+- 🟢 [Hagezi Native Apple]
+- 🔵 [Hagezi Ultimate]
+- 🟣 [1Hosts Xtra]
+- 🔴 [OISD Big]
+- 🟡 [List-KR]
+- 🟠 [AdGuard DNS for iOS]
 
 ---
 
-## 🛠 **자동화/관리**
+## 🛠 **관리**
 
-- **GitHub Actions**로 매일 자동 갱신
-- 중복 없이 병합, 간지 주석·날짜·줄 수 자동 삽입
+- 매일 자동 갱신
+- 중복 없이 병합
 - 관리팀: [zerodnsteam](https://github.com/zerodnsteam)
 
 ---
@@ -49,8 +42,8 @@ https://cdn.jsdelivr.net/gh/zerodnsteam/ZeroDNS@main/ZeroDNS.txt
 ## ⏬ **설치/적용 예시**
 
 1. **AdGuard (iOS/Android/브라우저/PC)**  
-   - `사용자 DNS 필터` → 위 CDN 주소 복사/붙여넣기  
-2. **NextDNS / Pi-hole / 라우터 / 기타**  
+   - `사용자 DNS 필터` → 위 Cl주소 복사/붙여넣기  
+2. **AdGuard Home / Pi-hole / 라우터 / 기타**  
    - “커스텀 블록리스트” 입력란에 위 주소 추가  
 3. **자동 업데이트**  
    - 매일/매주 자동 최신 필터 적용
