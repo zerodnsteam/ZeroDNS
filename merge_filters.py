@@ -23,7 +23,7 @@ for file in input_paths:
         if line.startswith("||") and line.endswith("^"):
             domains.add(line)
 
-ascii_logo = [
+ascii_logo = """[
     "! ███████╗███████╗██████╗  ██████╗ ██████╗ ███╗   ██╗███████╗",
     "! ╚══███╔╝██╔════╝██╔══██╗██╔═══██╗██╔══██╗████╗  ██║██╔════╝",
     "!   ███╔╝ █████╗  ██████╔╝██║   ██║██║  ██║██╔██╗ ██║███████╗",
@@ -38,7 +38,7 @@ ascii_logo = [
     "! Last modified: 2025-06-17T00:00:00Z
     "! Homepage: https://github.com/zerodnsteam/ZeroDNS
     "! Expires: 1 day
-
+    
     f"! 최신 업데이트 : {datetime.now().strftime('%Y-%m-%d %H:%M %z')}",
     f"! 총 도메인 수  : {len(domains):,}",
     "! [소스]",
@@ -50,8 +50,8 @@ ascii_logo = [
     "!   · AdGuard DNS filter (iOS)",
     "! Maintainer : zerodnsteam | https://github.com/zerodnsteam/ZeroDNS",
     "! ==========================================================",
-    ""
-]
+    
+]"""
 
 with output_path.open("w", encoding="utf-8") as f:
     f.write('\n'.join(ascii_logo))
