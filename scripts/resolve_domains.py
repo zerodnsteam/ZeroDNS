@@ -1,63 +1,83 @@
 import os
+import requests
+import time
 import json
 import re
 import concurrent.futures
 import socket
-import requests
 from pathlib import Path
 from datetime import datetime
+import shutil
 
-# ====== 1. 설정 ======
-FILTER_SOURCES = [
-    "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/native.apple.txt",
-    "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/ultimate.txt",
-    "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Pro/adblock.txt",
-    "https://cdn.jsdelivr.net/gh/sjhgvr/oisd@main/oisd_big.txt",
-    "https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt",
-    "https://filters.adtidy.org/dns/filter_1_ios.txt"
-]
-TRACKER_JSON_URL = "https://cdn.jsdelivr.net/gh/AdguardTeam/companiesdb@main/dist/trackers.json"
-WORK_DIR = Path("filters")
-TRACKERS_JSON_PATH = WORK_DIR / "trackers.json"
-
-DNS_SERVERS = [
-    "1.1.1.1", "8.8.8.8", "76.76.2.0", "208.67.222.222"
-]
-DNS_TIMEOUT = 1.0
-MAX_WORKERS = 20
-INCLUDE_CATEGORIES = {3, 4, 6, 14, 15, 101}
-
-def log(msg):  # 경량 로깅
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
-
-def download(url, out_path):
+# ====== 텔레그램 알림 함수 ======
+def send_telegram(msg):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not (token and chat_id): return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": msg,
+        "parse_mode": "Markdown"
+    }
     try:
-        r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        out_path.write_bytes(r.content)
-        log(f"다운로드 완료: {url}")
-    except Exception as e:
-        log(f"다운로드 실패: {url} ({e})")
-
-def get_root(domain):
-    parts = domain.split(".")
-    return ".".join(parts[-2:]) if len(parts) >= 2 else domain
-
-def check_dns(domain):
-    try:
-        for server in DNS_SERVERS:
-            try:
-                socket.setdefaulttimeout(DNS_TIMEOUT)
-                socket.gethostbyname_ex(domain)
-                return True
-            except Exception:
-                continue
-        return False
+        requests.post(url, data=payload, timeout=10)
     except Exception:
-        return False
+        pass
 
-def main():
+# ====== ZeroDNS 파이프라인 전체 ======
+def run_zerodns():
+    FILTER_SOURCES = [
+        "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/native.apple.txt",
+        "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/ultimate.txt",
+        "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Pro/adblock.txt",
+        "https://cdn.jsdelivr.net/gh/sjhgvr/oisd@main/oisd_big.txt",
+        "https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt",
+        "https://filters.adtidy.org/dns/filter_1_ios.txt"
+    ]
+    TRACKER_JSON_URL = "https://cdn.jsdelivr.net/gh/AdguardTeam/companiesdb@main/dist/trackers.json"
+    WORK_DIR = Path("filters")
+    TRACKERS_JSON_PATH = WORK_DIR / "trackers.json"
+
+    DNS_SERVERS = [
+        "1.1.1.1", "8.8.8.8", "76.76.2.0", "208.67.222.222"
+    ]
+    DNS_TIMEOUT = 1.0
+    MAX_WORKERS = 20
+    INCLUDE_CATEGORIES = {3, 4, 6, 14, 15, 101}
+
+    def log(msg):  # 경량 로깅
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
+    def download(url, out_path):
+        try:
+            r = requests.get(url, timeout=30)
+            r.raise_for_status()
+            out_path.write_bytes(r.content)
+            log(f"다운로드 완료: {url}")
+        except Exception as e:
+            log(f"다운로드 실패: {url} ({e})")
+
+    def get_root(domain):
+        parts = domain.split(".")
+        return ".".join(parts[-2:]) if len(parts) >= 2 else domain
+
+    def check_dns(domain):
+        try:
+            for server in DNS_SERVERS:
+                try:
+                    socket.setdefaulttimeout(DNS_TIMEOUT)
+                    socket.gethostbyname_ex(domain)
+                    return True
+                except Exception:
+                    continue
+            return False
+        except Exception:
+            return False
+
+    t_start = time.time()
     WORK_DIR.mkdir(exist_ok=True)
+
     # 1. 소스 다운로드
     for url in FILTER_SOURCES:
         fname = url.split("/")[-1].split("?")[0]
@@ -142,7 +162,39 @@ def main():
         for dom in sorted(ALL):
             f.write(f"||{dom}^\n")
 
-    log(f"ZeroDNS.txt 생성 완료! 최종 줄 수: {len(ALL):,}개")
+    # 이전 결과(줄 수) 저장
+    now = len(ALL)
+    prev = 0
+    try:
+        with open("ZeroDNS.txt.prev", encoding="utf-8") as fp:
+            prev = sum(1 for _ in fp)
+    except Exception:
+        pass
+    shutil.copyfile("ZeroDNS.txt", "ZeroDNS.txt.prev")
+    diff = now - prev
+    duration = round(time.time() - t_start)
+    return now, diff, duration
 
+# ========== 메인 진입부 ==========
 if __name__ == "__main__":
-    main()
+    t0 = time.time()
+    try:
+        now, diff, duration = run_zerodns()
+        msg = (
+            f"✅ *ZeroDNS 업데이트 완료!*\n"
+            f"- 총 줄 수: `{now:,}`\n"
+            f"- 증감: `{diff:+,}`\n"
+            f"- 실행시간: `{duration // 60}분 {duration % 60}초`\n"
+            f"- {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}"
+        )
+        send_telegram(msg)
+    except Exception as e:
+        duration = round(time.time() - t0)
+        msg = (
+            f"❌ *ZeroDNS 실패!*\n"
+            f"- 에러: `{e}`\n"
+            f"- 실행시간: `{duration // 60}분 {duration % 60}초`\n"
+            f"- {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}"
+        )
+        send_telegram(msg)
+        raise
