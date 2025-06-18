@@ -1,13 +1,14 @@
 name: Auto Update ZeroDNS
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:           # 수동 실행(버튼 클릭)
   schedule:
-    - cron: '30 3 * * *'   # 매일 오전 12:30(KST 09:30) 실행
+    - cron: '30 3 * * *'       # 매일 12:30(KST 09:30) 자동 실행 (필요 시 시간/주기 조정)
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,11 +24,11 @@ jobs:
       - name: Run ZeroDNS Filter Automation
         run: python scripts/resolve_domains.py
 
-      - name: Commit and Push
+      - name: Commit and Push (with rebase for conflict prevention)
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add ZeroDNS.txt
           git commit -m "auto: update ZeroDNS" || exit 0
-          git pull --rebase
+          git pull --rebase || git fetch origin main && git reset --hard origin/main
           git push
