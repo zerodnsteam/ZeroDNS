@@ -2,39 +2,47 @@ name: ZeroDNS Auto Update
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # 매일 한국시간 18:00 (UTC+9)
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install requests
-        run: pip install requests
+      - name: Install dependencies
+        run: pip install dnspython
 
-      - name: Download filter sources
+      - name: Download Filters
         run: |
           mkdir -p filters
-          python fetch_filters.py
+          curl -L https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/native.apple.txt -o filters/native.apple.txt
+          curl -L https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/adblock/ultimate.txt -o filters/ultimate.txt
+          curl -L https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Pro/adblock.txt -o filters/adblock.txt
+          curl -L https://cdn.jsdelivr.net/gh/sjhgvr/oisd@main/oisd_big.txt -o filters/oisd_big.txt
+          curl -L https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt -o filters/filter_25.txt
+          curl -L https://filters.adtidy.org/dns/filter_1_ios.txt -o filters/filter_1_ios.txt
 
-      - name: Merge filters and insert header
-        run: python merge_filters.py
+      - name: Merge Filters
+        run: python3 merge_filters.py
 
-      - name: Commit and push
+      - name: Resolve Domains
+        run: python3 resolve_domains.py
+
+      - name: Prune Subdomains
+        run: python3 prune_subdomains.py
+
+      - name: Commit and Push
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add ZeroDNS.txt
-          git commit -m "auto: update ZeroDNS" || echo "Nothing to commit"
-          git pull --rebase --autostash
+          git commit -m "auto: update ZeroDNS" || echo "No changes to commit"
+          git pull --rebase
           git push
