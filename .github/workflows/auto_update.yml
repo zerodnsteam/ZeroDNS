@@ -1,9 +1,9 @@
 name: Auto Update ZeroDNS
 
 on:
-  workflow_dispatch:           # 수동 실행(버튼 클릭)
+  workflow_dispatch:
   schedule:
-    - cron: '30 3 * * *'       # 매일 12:30(KST 09:30) 자동 실행 (필요 시 시간/주기 조정)
+    - cron: '30 3 * * *'
 
 jobs:
   build:
@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check if already auto-committed today
+        run: bash scripts/skip_if_already_run_today.sh
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -22,6 +25,9 @@ jobs:
         run: pip install requests
 
       - name: Run ZeroDNS Filter Automation
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scripts/resolve_domains.py
 
       - name: Commit and Push (with rebase for conflict prevention)
