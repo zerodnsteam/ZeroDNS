@@ -8,7 +8,6 @@ iOS·AdGuard 전용 공격적인 고성능 DNS 차단 리스트입니다.
 ## 🚀 최신 배포/상태
 
 - **필터 주소:**
-
 ```
 https://cdn.jsdelivr.net/gh/zerodnsteam/ZeroDNS@main/ZeroDNS.txt
 ```
