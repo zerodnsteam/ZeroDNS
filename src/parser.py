@@ -17,9 +17,9 @@ def parse_domains(files, logger):
                 if d and is_valid_domain(d):
                     raw_domains.append(d)
     logger.info(f"      → 원본 줄 수: {raw_total:,}줄")
-    # 중복 제거
+    # 1. 이상 도메인 삭제 & 중복 제거
     unique_domains = set(raw_domains)
-    # 루트 도메인 유지 + 서브 제거
+    # 2. 루트 도메인 있으면 하위 서브도메인 자동 삭제
     final_domains = remove_subdomains_if_root_exists(unique_domains)
     logger.info(f"      → 정제 후 도메인: {len(final_domains):,}개")
-    return final_domains, [], raw_total  # errors 빈 리스트로
+    return final_domains, [], raw_total  # errors 빈 리스트로 반환
