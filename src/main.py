@@ -6,7 +6,7 @@ from vibes import get_random_message
 import subprocess
 
 # ===== 로거 설정 =====
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ZeroDNS")
 logging.basicConfig(level=logging.INFO)
 
 # ===== (예시) 필터 소스 파일 딕셔너리 =====
