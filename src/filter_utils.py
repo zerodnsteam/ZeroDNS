@@ -1,46 +1,33 @@
 import re
-import unicodedata
-
-TLD_ONLY = {
-    "com", "net", "org", "kr", "cn", "jp", "de", "tv", "ru", "us",
-    "info", "biz", "top", "shop", "xyz", "co", "io", "ai", "uk"
-}
-FAKE_TLD = {
-    "local", "localhost", "test", "invalid", "example"
-}
+from typing import Set
 
 def clean_domain(domain: str) -> str:
-    domain = unicodedata.normalize("NFKC", domain)
-    domain = domain.strip().lower()
-    while domain.endswith('.'):
-        domain = domain[:-1]
-    domain = re.sub(r'\s+', '', domain)
-    if domain.startswith('www.') and domain.count('.') >= 2:
-        domain = domain[4:]
-    domain = re.sub(r'[^\w\.-]', '', domain)
-    return domain
-
-def is_garbage_domain(domain: str) -> bool:
-    if not domain or domain in TLD_ONLY or domain in FAKE_TLD:
-        return True
-    if ".." in domain:
-        return True
-    if re.search(r'\s', domain):
-        return True
-    if any(c in domain for c in ['/', '@', ':', '?']):
-        return True
-    if len(domain) < 4:
-        return True
-    if len(domain) > 255:
-        return True
-    if re.match(r'.*\.[0-9]+$', domain):
-        return True
-    if domain.startswith("xn--"):
-        if len(domain) < 5 or not re.match(r'^xn--[a-z0-9-]+$', domain):
-            return True
-    if "xn--" in domain and not re.match(r'^(xn--[a-z0-9-]+\.)+[a-z]{2,}$', domain):
-        return True
-    return False
+    return domain.strip().lower()
 
 def is_valid_domain(domain: str) -> bool:
-    return re.match(r'^[a-z0-9][a-z0-9\-\.]+\.[a-z]{2,}$', domain) is not None
+    if ".." in domain:
+        return False
+    if not re.match(r"^[a-z0-9\-\.]+$", domain):  # ASCII, -, .만 허용
+        return False
+    if domain.count('.') < 1:
+        return False  # 최소 example.com 형태
+    return True
+
+def remove_subdomains_if_root_exists(domains: Set[str]) -> Set[str]:
+    # 루트 도메인이 있으면 하위 서브도메인 제거
+    result = set()
+    sorted_domains = sorted(domains, key=lambda x: x.count('.'))
+    seen_roots = set()
+    for domain in sorted_domains:
+        parts = domain.split(".")
+        redundant = False
+        # check if any parent domain is already in result
+        for i in range(1, len(parts)):
+            parent = ".".join(parts[i:])
+            if parent in seen_roots:
+                redundant = True
+                break
+        if not redundant:
+            result.add(domain)
+            seen_roots.add(domain)
+    return result
