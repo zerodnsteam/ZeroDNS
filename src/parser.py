@@ -1,83 +1,81 @@
 import os
-import logging
-from datetime import datetime
-import requests
-import subprocess
-from parser import parse_domains
-from notify import send_telegram
-from vibes import get_random_message
+import re
 
-# ===== 로거 설정 =====
-logger = logging.getLogger("ZeroDNS")
-logging.basicConfig(level=logging.INFO)
+def is_valid_domain(domain):
+    domain = domain.strip().lower()
+    if not domain:
+        return False
+    if domain.startswith(".") or ".." in domain:
+        return False
+    if domain.startswith("-") or domain.endswith("-"):
+        return False
+    if re.search(r"[^\w\.\-]", domain):  # 알파벳/숫자/하이픈/점 외 문자 제거
+        return False
+    if domain.count(".") < 1:
+        return False
+    if domain.endswith(".js") or domain.endswith(".css") or domain.endswith(".txt"):
+        return False
+    return True
 
-# ===== [1/7] 필터 소스 (CDN 버전) =====
-FILTER_SOURCES = {
-    "OISD": "https://cdn.jsdelivr.net/gh/cbuijs/oisd@master/big/domains",
-    "HAGEZI_ULTIMATE": "https://cdn.jsdelivr.net/gh/cbuijs/hagezi@main/lists/ultimate/domains",
-    "HAGEZI_NATIVE-APPLE": "https://cdn.jsdelivr.net/gh/cbuijs/hagezi@main/lists/native-apple/domains",
-    "1HOSTS_PRO": "https://cdn.jsdelivr.net/gh/cbuijs/1hosts@main/Pro/domains",
-    "LIST-KR": "https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt",
-    "ADGUARD_DNS": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt"
-}
-FILTERS_DIR = "filters"
+def extract_domains(text):
+    lines = text.splitlines()
+    domains = []
+    for line in lines:
+        line = line.strip().lower()
+        line = re.sub(r"^(@@|\|\||\||0\.0\.0\.0|127\.0\.0\.1|\[::\])", "", line)
+        line = re.sub(r"\^.*$", "", line)
+        line = re.sub(r"#.*$", "", line)
+        line = re.sub(r"\s+", "", line)
+        if is_valid_domain(line):
+            domains.append(line)
+    return domains
 
-# ===== [1/7] 소스 다운로드 =====
-def download_sources(sources, logger):
-    os.makedirs(FILTERS_DIR, exist_ok=True)
-    for name, url in sources.items():
-        outpath = os.path.join(FILTERS_DIR, f"{name}.txt")
-        logger.info(f"[1/7]   - {name} 다운로드 중…")
+def keep_root_only(domains):
+    root_set = set()
+    for domain in domains:
+        parts = domain.split(".")
+        if len(parts) >= 2:
+            root = ".".join(parts[-2:])
+            root_set.add(root)
+    final_set = set()
+    for domain in domains:
+        parts = domain.split(".")
+        if len(parts) >= 2:
+            root = ".".join(parts[-2:])
+            if domain == root:
+                final_set.add(domain)
+    return final_set
+
+def parse_domains(sources, logger=None):
+    all_domains = set()
+    errors = []
+    raw_total = 0
+
+    for name, path in sources.items():
+        if logger:
+            logger.info(f"    {name} 도메인 추출 중…")
         try:
-            resp = requests.get(url, timeout=120)
-            resp.raise_for_status()
-            with open(outpath, "w", encoding="utf-8") as f:
-                f.write(resp.text)
-            logger.info(f"[1/7]     성공: {outpath} ({len(resp.text.splitlines()):,}줄)")
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
         except Exception as e:
-            logger.warning(f"[1/7]     실패: {name} ({e})")
+            errors.append(f"{name}: {e}")
+            continue
 
-download_sources(FILTER_SOURCES, logger)
-sources = {name: f"{FILTERS_DIR}/{name}.txt" for name in FILTER_SOURCES}
+        domains = extract_domains(text)
+        raw_total += len(domains)
 
-# ===== [2/7] 도메인 파싱 및 정제 =====
-domains, _, raw_total = parse_domains(sources, logger)
-line_count = len(domains)
+        for d in domains:
+            if is_valid_domain(d):
+                all_domains.add(d)
+            else:
+                errors.append(f"{name}:{d}")
 
-# ===== [3/7] AdGuard 형식으로 필터 저장 =====
-os.makedirs("output", exist_ok=True)
-out_fn = "output/ZeroDNS.txt"
-with open(out_fn, "w", encoding="utf-8") as f:
-    for d in sorted(domains):
-        f.write(f"||{d}^\n")
-logger.info(f"[4/7] 필터 저장 완료: {out_fn} ({line_count:,}줄)")
+    final_domains = keep_root_only(all_domains)
 
-# ===== [4/7] 상태 판단 =====
-CRITICAL_FAIL = (line_count == 0 or any(not os.path.isfile(fn) for fn in sources.values()))
-if CRITICAL_FAIL:
-    status = "fail"
-else:
-    status = "success"
+    # 에러 저장
+    os.makedirs("output", exist_ok=True)
+    with open("output/parse_errors.txt", "w", encoding="utf-8") as f:
+        for e in errors:
+            f.write(e + "\n")
 
-# ===== [5/7] 텔레그램 알림 =====
-msg = get_random_message(status, line_count, {}, [], raw_total)
-send_telegram(msg, logger)
-
-# ===== [6/7] GitHub 자동 커밋 & 푸시 =====
-def git_commit_and_push(file_path: str, logger=None):
-    try:
-        subprocess.run(["git", "config", "--global", "user.name", "zerodns-bot"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "actions@github.com"], check=True)
-        subprocess.run(["git", "add", file_path], check=True)
-        subprocess.run(["git", "commit", "-m", f"🔄 ZeroDNS 필터 업데이트 ({datetime.now().strftime('%Y-%m-%d')})"], check=True)
-        subprocess.run(["git", "push"], check=True)
-        if logger:
-            logger.info(f"✅ Git push 성공: {file_path}")
-    except subprocess.CalledProcessError as e:
-        if logger:
-            logger.error(f"❌ Git push 실패: {e}")
-
-# ===== [7/7] 마무리 =====
-logger.info(f"[7/7] 전체 작업 완료! (최종 라인 수: {line_count:,})")
-logger.info(f"[7/7] GitHub에 필터 자동 푸시 중…")
-git_commit_and_push(out_fn, logger)
+    return final_domains, errors, raw_total
