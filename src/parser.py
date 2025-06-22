@@ -1,37 +1,25 @@
 import os
-from filter_utils import clean_domain, is_garbage_domain, is_valid_domain
+from filter_utils import clean_domain, is_valid_domain, remove_subdomains_if_root_exists
 
 def parse_domains(files, logger):
-    domains = set()
-    errors = []
+    raw_domains = []
     raw_total = 0
 
     for name, fn in files.items():
-        if not fn:
-            continue
-        if not os.path.isfile(fn):
+        if not fn or not os.path.isfile(fn):
             logger.warning(f"      → {name}: 파일 없음, 건너뜀 ({fn})")
-            errors.append(f"{name}: 파일 없음 ({fn})")
             continue
         logger.info(f"    {name} 도메인 추출 중…")
         with open(fn, encoding="utf-8") as f:
-            for i, line in enumerate(f, 1):
+            for line in f:
                 raw_total += 1
-                try:
-                    d = clean_domain(line)
-                    if d and is_valid_domain(d) and not is_garbage_domain(d):
-                        domains.add(d)
-                    else:
-                        errors.append(f"{name}:{i}:{line.strip()}")
-                except Exception as e:
-                    errors.append(f"{name}:{i}: (파싱 오류) {str(e)} : {line.strip()}")
-
+                d = clean_domain(line)
+                if d and is_valid_domain(d):
+                    raw_domains.append(d)
     logger.info(f"      → 원본 줄 수: {raw_total:,}줄")
-    logger.info(f"      → 정제 후 도메인: {len(domains):,}개")
-    if errors:
-        os.makedirs("output", exist_ok=True)   # ← 반드시 필요!
-        logger.info(f"      → 이상한 줄: {len(errors):,}개 (output/parse_errors.txt)")
-        with open("output/parse_errors.txt", "w", encoding="utf-8") as f:
-            for e in errors:
-                f.write(e + "\n")
-    return domains, errors, raw_total
+    # 중복 제거
+    unique_domains = set(raw_domains)
+    # 루트 도메인 유지 + 서브 제거
+    final_domains = remove_subdomains_if_root_exists(unique_domains)
+    logger.info(f"      → 정제 후 도메인: {len(final_domains):,}개")
+    return final_domains, [], raw_total  # errors 빈 리스트로
