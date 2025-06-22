@@ -49,14 +49,14 @@ with open(out_fn, "w", encoding="utf-8") as f:
         f.write(f"||{d}^\n")
 logger.info(f"[4/7] 필터 저장 완료: {out_fn} ({line_count:,}줄)")
 
-# [4/7] 상태 판단: 성공/실패 구분
+# [4/7] 상태 판단: 오직 성공/실패만 구분
 CRITICAL_FAIL = (line_count == 0 or any(not os.path.isfile(fn) for fn in sources.values()))
 if CRITICAL_FAIL:
     status = "fail"
 else:
     status = "success"
 
-# [5/7] 텔레그램 알림
+# [5/7] 텔레그램 알림 (중간 상태 없이!)
 msg = get_random_message(status, line_count, {}, [], raw_total)
 send_telegram(msg, logger)
 
