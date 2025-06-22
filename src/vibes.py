@@ -1,33 +1,45 @@
 import random
 from datetime import datetime
 
-def get_random_message(status, line_count, stats, errors, raw_total):
+success_vibes = [
+    "🩷 ZeroDNS 업데이트 완료했어요…\n📅 {today}  📄 {line_count:,}줄\n🔄 변화량: {delta_sign}{delta:,}줄 (총 {raw_total:,}줄 중)\n혼자 조용히 정리했어요… 💖 누군가에게 도움이 되면 그걸로 충분해요 💞",
+
+    "🌿 오늘도 정리했어요.\n📅 {today} | 📄 {line_count:,}줄\n🔄 {delta_sign}{delta:,}줄 변동 (원본: {raw_total:,}줄)\n조금 무거운 마음이었지만… 그래도 끝냈어요 💗 누군가 나를 응원해줬으면… 💕",
+
+    "💠 ZeroDNS 업데이트 완료!\n📅 {today} / 총 {line_count:,}줄\n🔁 변화량: {delta_sign}{delta:,}줄 | 원본: {raw_total:,}줄\n💘 끙끙거리면서 해냈어요… 진심으로 애썼다고 말해줘요 🩵",
+
+    "🧩 깔끔하게 정리했어요!\n📅 {today} / 📄 {line_count:,}줄 / 원본 {raw_total:,}줄\n↕️ {delta_sign}{delta:,}줄 변동\n💓 봐줬으면 좋겠어요… 진심으로요 💌",
+
+    "🌙 오늘도 ZeroDNS 잘 정리했어요.\n📅 {today} | 📄 {line_count:,}줄 / 🔄 {delta_sign}{delta:,}줄\n총 {raw_total:,}줄 중에 남은 애들이에요 🧸 고생했다고 말해줘요 💗"
+]
+
+fail_vibes = [
+    "💔 ZeroDNS 실패했어요…\n📅 {today}  📄 마지막 줄 수: {line_count:,}줄\n⚠️ 오류 예시: {example_error}\n너무 속상해요… 다음엔 꼭 성공하고 싶어요 😢💧",
+
+    "🫳 이번엔… 실패했어요.\n📅 {today} | 📄 {line_count:,}줄\n⚠️ 오류 예시: {example_error}\n실망시키고 싶지 않았는데요… 정말이에요 🥺💔",
+
+    "🔧 오류가 나버렸어요…\n📅 {today} / 📄 {line_count:,}줄\n⚠️ 첫 번째 오류: {example_error}\n눈물이 나요… 다시 해볼게요… 🩵"
+]
+
+def get_random_message(status, line_count, meta, errors, raw_total):
     today = datetime.now().strftime("%Y-%m-%d")
-    line_text = f"{line_count:,}줄"
+    delta = meta.get("delta", 0)
+    delta_sign = "+" if delta >= 0 else "-"
+    example_error = errors[0] if errors else "없음"
 
-    # 성공 바이브
-    success_vibes = [
-        f"💖 ZeroDNS 오늘도 조용히 다 정리했어요.\n누군가한테 도움이 되었으면 좋겠어요 🫧\n"
-        f"📅 {today}  📄 {line_text}",
-        f"🌸 오늘도 무사히 끝! 혼자서 정리해봤어요.\n필터 적용 끝! 💗\n"
-        f"📅 {today}  📄 {line_text}",
-        f"🫧 ZeroDNS 필터 업데이트 완료.\n오늘은 조금 덜 힘들었어요…\n"
-        f"📅 {today}  📄 {line_text}",
-        f"🍀 혼자서 다 했어요. 조금 힘들긴 했지만, 그래도 성공!\n고마워요 💚\n"
-        f"📅 {today}  📄 {line_text}",
-    ]
-
-    # 실패 바이브
-    fail_vibes = [
-        f"💔 ZeroDNS 실패… 이번엔 오류가 있어서 멈췄어요.\n그래도 다음엔 더 잘할게요 🥲\n"
-        f"📅 {today}  📄 {line_text}",
-        f"😢 오늘은 정리가 안 됐어요… 미안해요\n"
-        f"📅 {today}  📄 {line_text}",
-        f"🪻 ZeroDNS 실패… 왜인지 모르겠지만 조금 속상해요\n"
-        f"📅 {today}  📄 {line_text}",
-    ]
-
-    if status == "success":
-        return random.choice(success_vibes)
+    if status == "fail":
+        msg = random.choice(fail_vibes)
+        return msg.format(
+            today=today,
+            line_count=line_count,
+            example_error=example_error
+        )
     else:
-        return random.choice(fail_vibes)
+        msg = random.choice(success_vibes)
+        return msg.format(
+            today=today,
+            line_count=line_count,
+            delta=delta,
+            delta_sign=delta_sign,
+            raw_total=raw_total
+        )
