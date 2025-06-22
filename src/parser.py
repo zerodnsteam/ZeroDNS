@@ -1,3 +1,4 @@
+import os
 from filter_utils import clean_domain, is_garbage_domain, is_valid_domain
 
 def parse_domains(files, logger):
@@ -7,6 +8,10 @@ def parse_domains(files, logger):
 
     for name, fn in files.items():
         if not fn:
+            continue
+        if not os.path.isfile(fn):
+            logger.warning(f"      → {name}: 파일 없음, 건너뜀 ({fn})")
+            errors.append(f"{name}: 파일 없음 ({fn})")
             continue
         logger.info(f"    {name} 도메인 추출 중…")
         with open(fn, encoding="utf-8") as f:
@@ -24,6 +29,7 @@ def parse_domains(files, logger):
     logger.info(f"      → 원본 줄 수: {raw_total:,}줄")
     logger.info(f"      → 정제 후 도메인: {len(domains):,}개")
     if errors:
+        os.makedirs("output", exist_ok=True)   # ← 반드시 필요!
         logger.info(f"      → 이상한 줄: {len(errors):,}개 (output/parse_errors.txt)")
         with open("output/parse_errors.txt", "w", encoding="utf-8") as f:
             for e in errors:
