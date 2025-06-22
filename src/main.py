@@ -1,34 +1,28 @@
-import os
-from downloader import download_sources
-from parser import parse_domains
-from merger import merge_domains
-from formatter import format_adguard
 from vibes import get_random_message
 from notify import send_telegram
-from progress import ProgressLogger
+from datetime import datetime
 
-def ensure_dirs():
-    for d in ["filters", "output"]:
-        os.makedirs(d, exist_ok=True)
+# 필터 도메인 개수, 오류 리스트, 필터별 통계, 다운로드 소스 사전
+line_count = final_line_count      # 필터 최종 줄 수
+errors = parse_errors              # 도메인 파싱 중 이상한 줄
+sources = source_files             # {OISD: ..., HAGEZI: ..., ...}
 
-def main():
-    logger = ProgressLogger()
-    ensure_dirs()
-    logger.log("[1/7] 소스 다운로드")
-    sources = download_sources("filters", logger)
-    logger.log("[2/7] 도메인 추출/정제")
-    domains, errors = parse_domains(sources, logger)
-    logger.log("[3/7] 중복제거/불필요도메인 필터")
-    clean_domains, filter_stats = merge_domains(domains, logger)
-    logger.log("[4/7] AdGuard 변환 및 저장")
-    line_count = format_adguard(clean_domains, logger)
-    logger.log("[5/7] 통계/변화량 집계 및 로그 저장")
-    logger.save()
-    logger.log("[6/7] 텔레그램 알림 전송")
-    status = "success" if line_count > 0 and not errors else "fail" if errors else "nochange"
-    msg = get_random_message(status, line_count, filter_stats, errors)
-    send_telegram(msg, logger)
-    logger.log(f"[7/7] 전체 작업 완료! (라인 수: {line_count:,})")
+# 실패/성공/경고 구분
+CRITICAL_FAIL = (
+    line_count == 0 or
+    any(v is None for v in sources.values())
+)
+PARSING_ERROR_RATIO = len(errors) / max(line_count, 1)
 
-if __name__ == "__main__":
-    main()
+if CRITICAL_FAIL:
+    status = "fail"
+elif PARSING_ERROR_RATIO > 0.05:
+    status = "fail"
+elif len(errors) > 0:
+    status = "success_with_warnings"
+else:
+    status = "success"
+
+# 감정 멘트 + 알림 전송
+msg = get_random_message(status, line_count, filter_stats, errors)
+send_telegram(msg, logger)
