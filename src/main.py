@@ -37,7 +37,6 @@ def download_sources(sources, logger):
             logger.warning(f"[1/7]     실패: {name} ({e})")
 
 download_sources(FILTER_SOURCES, logger)
-
 sources = {name: f"{FILTERS_DIR}/{name}.txt" for name in FILTER_SOURCES}
 
 # ===== [2/7] 도메인 파싱 및 정제 =====
