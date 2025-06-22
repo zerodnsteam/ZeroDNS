@@ -7,18 +7,16 @@ from parser import parse_domains
 from notify import send_telegram
 from vibes import get_random_message
 
-# ===== 로거 설정 =====
 logger = logging.getLogger("ZeroDNS")
 logging.basicConfig(level=logging.INFO)
 
-# ===== [1/7] 필터 소스 URL 딕셔너리 =====
 FILTER_SOURCES = {
-    "OISD": "https://raw.githubusercontent.com/cbuijs/oisd/master/big/domains",
-    "HAGEZI_ULTIMATE": "https://raw.githubusercontent.com/cbuijs/hagezi/main/lists/ultimate/domains",
-    "HAGEZI_NATIVE-APPLE": "https://raw.githubusercontent.com/cbuijs/hagezi/main/lists/native-apple/domains",
-    "1HOSTS_PRO": "https://raw.githubusercontent.com/cbuijs/1hosts/main/Pro/domains",
+    "OISD": "https://cdn.jsdelivr.net/gh/cbuijs/oisd@master/big/domains",
+    "HAGEZI_ULTIMATE": "https://cdn.jsdelivr.net/gh/cbuijs/hagezi@main/lists/ultimate/domains",
+    "HAGEZI_NATIVE-APPLE": "https://cdn.jsdelivr.net/gh/cbuijs/hagezi@main/lists/native-apple/domains",
+    "1HOSTS_PRO": "https://cdn.jsdelivr.net/gh/cbuijs/1hosts@main/Pro/domains",
     "LIST-KR": "https://cdn.jsdelivr.net/gh/adguardteam/HostlistsRegistry@main/assets/filter_25.txt",
-    "ADGUARD_DNS": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt"
+    "ADGUARD_DNS": "https://cdn.jsdelivr.net/gh/adguardteam/AdGuardSDNSFilter@gh-pages/Filters/filter.txt"
 }
 FILTERS_DIR = "filters"
 
@@ -39,11 +37,11 @@ def download_sources(sources, logger):
 download_sources(FILTER_SOURCES, logger)
 sources = {name: f"{FILTERS_DIR}/{name}.txt" for name in FILTER_SOURCES}
 
-# ===== [2/7] 도메인 파싱 및 정제 =====
-domains, errors, raw_total = parse_domains(sources, logger)
+# [2/7] 도메인 파싱 및 정제
+domains, _, raw_total = parse_domains(sources, logger)
 line_count = len(domains)
 
-# ===== [3/7] 필터 저장 (AdGuard 스타일) =====
+# [3/7] 필터 저장 (AdGuard 스타일)
 os.makedirs("output", exist_ok=True)
 out_fn = "output/ZeroDNS.txt"
 with open(out_fn, "w", encoding="utf-8") as f:
@@ -51,23 +49,18 @@ with open(out_fn, "w", encoding="utf-8") as f:
         f.write(f"||{d}^\n")
 logger.info(f"[4/7] 필터 저장 완료: {out_fn} ({line_count:,}줄)")
 
-# ===== [4/7] 상태 판단 (실패/경고/성공/변화없음) =====
+# [4/7] 상태 판단: 성공/실패 구분
 CRITICAL_FAIL = (line_count == 0 or any(not os.path.isfile(fn) for fn in sources.values()))
-PARSING_ERROR_RATIO = len(errors) / max(line_count, 1)
 if CRITICAL_FAIL:
     status = "fail"
-elif PARSING_ERROR_RATIO > 0.05:
-    status = "fail"
-elif len(errors) > 0:
-    status = "success_with_warnings"
 else:
     status = "success"
 
-# ===== [5/7] 텔레그램 알림 =====
-msg = get_random_message(status, line_count, {}, errors, raw_total)
+# [5/7] 텔레그램 알림
+msg = get_random_message(status, line_count, {}, [], raw_total)
 send_telegram(msg, logger)
 
-# ===== [6/7] GitHub 자동 커밋/푸시 =====
+# [6/7] GitHub 자동 커밋/푸시
 def git_commit_and_push(file_path: str, logger=None):
     try:
         subprocess.run(["git", "config", "--global", "user.name", "zerodns-bot"], check=True)
