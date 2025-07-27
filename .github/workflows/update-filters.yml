@@ -13,6 +13,14 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      # 한 번만 선언해서 아래 모든 스텝에서 사용
+      SOURCES: |
+        oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock
+        ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock
+        tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock
+        popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -23,19 +31,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sources=(
-            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
-            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
-            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
-            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
-          )
+          # 환경변수에서 배열로 변환
+          IFS=$'\n' read -r -d '' -a sources <<< "$SOURCES"$'\0'
           {
-            for item in "${sources[@]}"; do
-              url="${item#*|}"
+            for entry in "${sources[@]}"; do
+              url=${entry#*|}
               curl -fsSL --retry 3 --retry-delay 5 "$url" || true
             done
-          } \
-            | grep -v '^!' \
+          } | grep -v '^!' \
             | sed -E 's#^\|\|##; s#\^$##' \
             | grep -E '^[A-Za-z0-9.-]+$' \
             | sort -u \
@@ -63,27 +66,22 @@ jobs:
           updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
           output="ZeroDNS-AdGuard-DNS-Filter.txt"
 
-          cat <<EOF > "$output"
-! Title: ZeroDNS AdGuard DNS Filter
-! Description: Daily merged top-n domain blocklist from oisd big, ultimate-mini, tif-mini, popupads
-! Version: $version
-! Updated: $updated
+          # 헤더
+          echo "! Title: ZeroDNS AdGuard DNS Filter" > "$output"
+          echo "! Description: Daily merged top-n domain blocklist" >> "$output"
+          echo "! Version: $version" >> "$output"
+          echo "! Updated: $updated" >> "$output"
+          echo "" >> "$output"
 
-EOF
-
-          sources=(
-            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
-            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
-            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
-            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
-          )
-          for item in "${sources[@]}"; do
-            name="${item%%|*}"
-            url="${item#*|}"
+          # 소스 주석
+          while IFS= read -r entry; do
+            name=${entry%%|*}
+            url=${entry#*|}
             echo "! Source: $name ($url)" >> "$output"
-          done
-          echo >> "$output"
+          done <<< "$SOURCES"
+          echo "" >> "$output"
 
+          # 도메인 필터 본문
           sed -E 's#^\|\|##; s#\^$##' domains.tmp \
             | sed 's#^#||#; s#$#^#' \
             >> "$output"
