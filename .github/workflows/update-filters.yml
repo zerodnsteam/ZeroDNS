@@ -13,13 +13,6 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    env:
-      # 한 번만 선언해서 아래 모든 스텝에서 사용
-      SOURCES: |
-        oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock
-        ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock
-        tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock
-        popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock
 
     steps:
       - name: Checkout repository
@@ -27,73 +20,71 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Merge and dedupe domains
+      - name: Build and update AdGuard DNS filter
         shell: bash
         run: |
           set -euo pipefail
-          # 환경변수에서 배열로 변환
-          IFS=$'\n' read -r -d '' -a sources <<< "$SOURCES"$'\0'
+
+          # 1) 원본 필터 소스 목록
+          sources=(
+            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
+            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
+            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
+            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
+          )
+
+          # 2) 병합·정제·중복 제거
+          tmpfile=$(mktemp)
           {
             for entry in "${sources[@]}"; do
-              url=${entry#*|}
+              url="${entry#*|}"
               curl -fsSL --retry 3 --retry-delay 5 "$url" || true
             done
           } | grep -v '^!' \
             | sed -E 's#^\|\|##; s#\^$##' \
             | grep -E '^[A-Za-z0-9.-]+$' \
             | sort -u \
-            > domains.tmp
+            > "$tmpfile"
 
-      - name: Check for domain changes
-        shell: bash
-        run: |
-          set -euo pipefail
+          # 3) 변화 없으면 종료
           if [ -f ZeroDNS-AdGuard-DNS-Filter.txt ]; then
             grep '^||' ZeroDNS-AdGuard-DNS-Filter.txt \
               | sed -E 's#^\|\|##; s#\^$##' \
-              > old-domains.tmp
-            if diff -q old-domains.tmp domains.tmp; then
-              echo "No domain changes; exiting"
+              > old_domains
+            if diff -q old_domains "$tmpfile"; then
+              echo "No changes in domains; exiting"
               exit 0
             fi
           fi
 
-      - name: Build final filter file
-        shell: bash
-        run: |
-          set -euo pipefail
+          # 4) 최종 필터 파일 생성
           version=$(TZ=Asia/Seoul date +'%Y%m%d')
           updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
-          output="ZeroDNS-AdGuard-DNS-Filter.txt"
+          output=ZeroDNS-AdGuard-DNS-Filter.txt
 
-          # 헤더
-          echo "! Title: ZeroDNS AdGuard DNS Filter" > "$output"
-          echo "! Description: Daily merged top-n domain blocklist" >> "$output"
-          echo "! Version: $version" >> "$output"
-          echo "! Updated: $updated" >> "$output"
-          echo "" >> "$output"
+          cat > "$output" <<EOF
+! Title: ZeroDNS AdGuard DNS Filter
+! Description: Daily merged top-n domain blocklist from oisd big, ultimate-mini, tif-mini, popupads
+! Version: $version
+! Updated: $updated
 
-          # 소스 주석
-          while IFS= read -r entry; do
-            name=${entry%%|*}
-            url=${entry#*|}
+EOF
+
+          for entry in "${sources[@]}"; do
+            name="${entry%%|*}"
+            url="${entry#*|}"
             echo "! Source: $name ($url)" >> "$output"
-          done <<< "$SOURCES"
+          done
           echo "" >> "$output"
 
-          # 도메인 필터 본문
-          sed -E 's#^\|\|##; s#\^$##' domains.tmp \
+          sed -E 's#^\|\|##; s#\^$##' "$tmpfile" \
             | sed 's#^#||#; s#$#^#' \
             >> "$output"
 
-      - name: Commit and push changes
-        shell: bash
-        run: |
-          set -euo pipefail
+          # 5) 변경 시 커밋 & 푸시
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          version=$(TZ=Asia/Seoul date +'%Y%m%d')
-          git add ZeroDNS-AdGuard-DNS-Filter.txt
+          git add "$output"
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
