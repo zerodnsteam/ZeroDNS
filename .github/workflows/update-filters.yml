@@ -31,10 +31,11 @@ jobs:
           )
           {
             for item in "${sources[@]}"; do
-              url=${item#*|}
+              url="${item#*|}"
               curl -fsSL --retry 3 --retry-delay 5 "$url" || true
             done
-          } | grep -v '^!' \
+          } \
+            | grep -v '^!' \
             | sed -E 's#^\|\|##; s#\^$##' \
             | grep -E '^[A-Za-z0-9.-]+$' \
             | sort -u \
@@ -60,7 +61,7 @@ jobs:
           set -euo pipefail
           version=$(TZ=Asia/Seoul date +'%Y%m%d')
           updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
-          output=ZeroDNS-AdGuard-DNS-Filter.txt
+          output="ZeroDNS-AdGuard-DNS-Filter.txt"
 
           cat <<EOF > "$output"
 ! Title: ZeroDNS AdGuard DNS Filter
@@ -77,8 +78,8 @@ EOF
             "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
           )
           for item in "${sources[@]}"; do
-            name=${item%%|*}
-            url=${item#*|}
+            name="${item%%|*}"
+            url="${item#*|}"
             echo "! Source: $name ($url)" >> "$output"
           done
           echo >> "$output"
