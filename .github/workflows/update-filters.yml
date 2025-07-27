@@ -44,6 +44,7 @@ jobs:
       - name: Check for domain changes
         shell: bash
         run: |
+          set -euo pipefail
           if [ -f ZeroDNS-AdGuard-DNS-Filter.txt ]; then
             grep '^||' ZeroDNS-AdGuard-DNS-Filter.txt \
               | sed -E 's#^\|\|##; s#\^$##' \
@@ -75,7 +76,6 @@ jobs:
 ! Updated: $updated
 
 EOF
-
           for item in "${sources[@]}"; do
             name=${item%%|*}
             url=${item#*|}
@@ -90,6 +90,7 @@ EOF
       - name: Commit and push changes
         shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           version=$(TZ=Asia/Seoul date +'%Y%m%d')
