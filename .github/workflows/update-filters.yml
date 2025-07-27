@@ -13,22 +13,33 @@ concurrency:
 jobs:
   merge-and-commit:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. 체크아웃 (푸시 권한 유지)
+      # 1. 체크아웃 (GITHUB_TOKEN 푸시 권한 유지)
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
 
-      # 2. 병합·중복제거·AdGuard DNS 포맷
-      - name: Merge, dedupe & format for AdGuard DNS
+      # 2. 필터 병합·중복 제거·AdGuard DNS 포맷 변환
+      - name: Merge and dedupe and format for AdGuard DNS
+        shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 5 \
-            https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock \
-            https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock \
-            https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock \
-            https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock \
-          || true \
+
+          # 소스 URL 배열
+          urls=(
+            "https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
+            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
+            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
+            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
+          )
+
+          # 다운로드 · 주석 제거 · 도메인만 필터 · 정렬·중복제거 · Adblock-style 포맷
+          {
+            for url in "${urls[@]}"; do
+              curl -fsSL --retry 3 --retry-delay 5 "$url" || true
+            done
+          } \
           | grep -v '^!' \
           | sed -E 's#^\|\|##; s#\^$##' \
           | grep -E '^[A-Za-z0-9.-]+$' \
@@ -36,8 +47,9 @@ jobs:
           | sed 's#^#||#; s#$#^#' \
           > domains.top-n.adguard-dns
 
-      # 3. 파일 존재 체크 후 커밋 & 푸시
-      - name: Commit & push changes
+      # 3. 생성된 파일이 있을 때만 커밋 & 푸시
+      - name: Commit and push changes
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
