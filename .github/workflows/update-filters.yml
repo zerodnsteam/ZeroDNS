@@ -1,70 +1,100 @@
-name: Daily Update DNS Filters
+name: Daily Update AdGuard DNS Filter
 
 on:
   schedule:
-    # KST 자정(UTC 15:00)에 실행
+    # KST 자정 (UTC 15:00)에 실행
     - cron: '0 15 * * *'
   workflow_dispatch: {}
 
 concurrency:
-  group: daily-update-dns-filters
+  group: daily-update-adguard-dns-filter
   cancel-in-progress: true
 
 jobs:
-  merge-and-commit:
+  update:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 체크아웃 (GITHUB_TOKEN 푸시 권한 유지)
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
 
-      # 2. 필터 병합·중복 제거·AdGuard DNS 포맷 변환
-      - name: Merge and dedupe and format for AdGuard DNS
+      # 1) 원본 필터에서 순수 도메인 목록 생성
+      - name: Merge & dedupe domains
         shell: bash
         run: |
           set -euo pipefail
 
-          # 소스 URL 배열
-          urls=(
-            "https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
-            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
-            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
-            "https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
+          sources=(
+            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
+            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
+            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
+            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
           )
 
-          # 다운로드 · 주석 제거 · 도메인만 필터 · 정렬·중복제거 · Adblock-style 포맷
           {
-            for url in "${urls[@]}"; do
+            for item in "${sources[@]}"; do
+              url=${item#*|}
               curl -fsSL --retry 3 --retry-delay 5 "$url" || true
             done
           } \
-          | grep -v '^!' \
-          | sed -E 's#^\|\|##; s#\^$##' \
-          | grep -E '^[A-Za-z0-9.-]+$' \
-          | sort -u \
-          | sed 's#^#||#; s#$#^#' \
-          > domains.top-n.adguard-dns
+            | grep -v '^!' \
+            | sed -E 's#^\|\|##; s#\^$##' \
+            | grep -E '^[A-Za-z0-9.-]+$' \
+            | sort -u \
+            > domains.tmp
 
-      # 3. 생성된 파일이 있을 때만 커밋 & 푸시
-      - name: Commit and push changes
+      # 2) 이전 필터에서 도메인만 추출해 비교 (변경 없으면 종료)
+      - name: Check for domain changes
+        shell: bash
+        run: |
+          if [ -f ZeroDNS-AdGuard-DNS-Filter.txt ]; then
+            grep '^||' ZeroDNS-AdGuard-DNS-Filter.txt \
+              | sed -E 's#^\|\|##; s#\^$##' \
+              > old-domains.tmp
+            if diff -q old-domains.tmp domains.tmp; then
+              echo "No domain changes; exiting"
+              exit 0
+            fi
+          fi
+
+      # 3) 헤더·메타 추가 후 최종 필터 파일 생성
+      - name: Build final filter file
+        shell: bash
+        run: |
+          output=ZeroDNS-AdGuard-DNS-Filter.txt
+          version=$(TZ=Asia/Seoul date +'%Y%m%d')
+          updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
+
+          cat <<EOF > "$output"
+! Title: ZeroDNS AdGuard DNS Filter
+! Description: Daily merged top-n domain blocklist from oisd big, ultimate-mini, tif-mini, popupads
+! Version: $version
+! Updated: $updated
+
+EOF
+
+          for item in "${sources[@]}"; do
+            name=${item%%|*}
+            url=${item#*|}
+            echo "! Source: $name ($url)" >> "$output"
+          done
+          echo >> "$output"
+
+          sed -E 's#^\|\|##; s#\^$##' domains.tmp \
+            | sed 's#^#||#; s#$#^#' \
+            >> "$output"
+
+      # 4) 변경된 경우에만 커밋·푸시
+      - name: Commit & push changes
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          if [ ! -f domains.top-n.adguard-dns ]; then
-            echo "domains.top-n.adguard-dns not found, skipping commit"
-            exit 0
-          fi
-
-          git add domains.top-n.adguard-dns
-
+          git add ZeroDNS-AdGuard-DNS-Filter.txt
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-
-          git commit -m "chore: daily update merged DNS filters for AdGuard DNS"
+          git commit -m "chore: daily update AdGuard DNS filter v$version"
           git push
