@@ -11,16 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  update:
+  update-filter:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
           persist-credentials: true
 
-      - name: Build and update AdGuard DNS filter
+      - name: Update AdGuard DNS filter
         shell: bash
         run: |
           set -euo pipefail
@@ -35,22 +34,19 @@ jobs:
 
           # 2) 병합·정제·중복 제거
           tmpfile=$(mktemp)
-          {
-            for entry in "${sources[@]}"; do
-              url="${entry#*|}"
-              curl -fsSL --retry 3 --retry-delay 5 "$url" || true
-            done
-          } | grep -v '^!' \
-            | sed -E 's#^\|\|##; s#\^$##' \
-            | grep -E '^[A-Za-z0-9.-]+$' \
-            | sort -u \
-            > "$tmpfile"
+          for entry in "${sources[@]}"; do
+            url="${entry#*|}"
+            curl -fsSL --retry 3 --retry-delay 5 "$url" || true
+          done | \
+            grep -v '^!' | \
+            sed -E 's#^\|\|##; s#\^$##' | \
+            grep -E '^[A-Za-z0-9.-]+$' | \
+            sort -u > "$tmpfile"
 
           # 3) 변화 없으면 종료
           if [ -f ZeroDNS-AdGuard-DNS-Filter.txt ]; then
-            grep '^||' ZeroDNS-AdGuard-DNS-Filter.txt \
-              | sed -E 's#^\|\|##; s#\^$##' \
-              > old_domains
+            grep '^||' ZeroDNS-AdGuard-DNS-Filter.txt | \
+              sed -E 's#^\|\|##; s#\^$##' > old_domains
             if diff -q old_domains "$tmpfile"; then
               echo "No changes in domains; exiting"
               exit 0
@@ -62,24 +58,20 @@ jobs:
           updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
           output=ZeroDNS-AdGuard-DNS-Filter.txt
 
-          cat > "$output" <<EOF
-! Title: ZeroDNS AdGuard DNS Filter
-! Description: Daily merged top-n domain blocklist from oisd big, ultimate-mini, tif-mini, popupads
-! Version: $version
-! Updated: $updated
-
-EOF
-
-          for entry in "${sources[@]}"; do
-            name="${entry%%|*}"
-            url="${entry#*|}"
-            echo "! Source: $name ($url)" >> "$output"
-          done
-          echo "" >> "$output"
-
-          sed -E 's#^\|\|##; s#\^$##' "$tmpfile" \
-            | sed 's#^#||#; s#$#^#' \
-            >> "$output"
+          {
+            echo "! Title: ZeroDNS AdGuard DNS Filter"
+            echo "! Description: Daily merged top-n domain blocklist"
+            echo "! Version: $version"
+            echo "! Updated: $updated"
+            echo
+            for entry in "${sources[@]}"; do
+              name="${entry%%|*}"
+              url="${entry#*|}"
+              echo "! Source: $name ($url)"
+            done
+            echo
+            sed -E 's#^\|\|##; s#\^$##' "$tmpfile" | sed 's#^#||#; s#$#^#'
+          } > "$output"
 
           # 5) 변경 시 커밋 & 푸시
           git config user.name "github-actions[bot]"
@@ -89,5 +81,5 @@ EOF
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "chore: daily update AdGuard DNS filter v$version"
+          git commit -m "chore: update AdGuard DNS filter v$version"
           git push
