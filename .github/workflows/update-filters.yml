@@ -13,14 +13,13 @@ concurrency:
 jobs:
   merge-and-commit:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. 리포지토리 체크아웃 (GITHUB_TOKEN 푸시 권한 유지)
+      # 1. 체크아웃 (푸시 권한 유지)
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
 
-      # 2. 네 개 필터 병합·중복 제거·AdGuard DNS 포맷 변환
+      # 2. 병합·중복제거·AdGuard DNS 포맷
       - name: Merge, dedupe & format for AdGuard DNS
         run: |
           set -euo pipefail
@@ -37,11 +36,16 @@ jobs:
           | sed 's#^#||#; s#$#^#' \
           > domains.top-n.adguard-dns
 
-      # 3. 변경사항 있으면 커밋 & 푸시
+      # 3. 파일 존재 체크 후 커밋 & 푸시
       - name: Commit & push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ ! -f domains.top-n.adguard-dns ]; then
+            echo "domains.top-n.adguard-dns not found, skipping commit"
+            exit 0
+          fi
 
           git add domains.top-n.adguard-dns
 
