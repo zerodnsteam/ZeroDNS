@@ -42,10 +42,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
+
+          git add domains.top-n.adguard-dns
+
+          if git diff --cached --quiet; then
             echo "No changes to commit"
-          else
-            git add domains.top-n.adguard-dns
-            git commit -m "chore: daily update merged DNS filters for AdGuard DNS"
-            git push
+            exit 0
           fi
+
+          git commit -m "chore: daily update merged DNS filters for AdGuard DNS"
+          git push
