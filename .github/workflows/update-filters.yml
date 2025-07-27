@@ -13,7 +13,6 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -59,12 +58,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sources=(
-            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
-            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
-            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
-            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
-          )
           version=$(TZ=Asia/Seoul date +'%Y%m%d')
           updated=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M:%S %Z')
           output=ZeroDNS-AdGuard-DNS-Filter.txt
@@ -76,6 +69,13 @@ jobs:
 ! Updated: $updated
 
 EOF
+
+          sources=(
+            "oisd-big|https://raw.githubusercontent.com/cbuijs/oisd/refs/heads/master/big/domains.top-n.adblock"
+            "ultimate-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/ultimate-mini/domains.top-n.adblock"
+            "tif-mini|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/tif-mini/domains.top-n.adblock"
+            "popupads|https://raw.githubusercontent.com/cbuijs/hagezi/refs/heads/main/lists/popupads/domains.top-n.adblock"
+          )
           for item in "${sources[@]}"; do
             name=${item%%|*}
             url=${item#*|}
